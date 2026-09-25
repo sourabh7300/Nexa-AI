@@ -1,3 +1,4 @@
 ﻿node_modules/
 .npm-cache/
 .env
+client_secret_*.json

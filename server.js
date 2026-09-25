@@ -175,8 +175,17 @@ const server = http.createServer(async (req, res) => {
     const choice = modelChoices[body.model] || null;
     const requestedProvider = choice?.[0] || (['groq','gemini'].includes(body.provider) ? body.provider : 'auto');
     if (requestedProvider === 'groq' && hasAttachments) return json(res, 400, { error: 'PDF and image attachments currently need Gemini. Choose Auto or Gemini.' });
-    if (requestedProvider !== 'gemini' && !hasAttachments && process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'your_groq_key_here') { const model = choice?.[0] === 'groq' ? choice[1] : process.env.GROQ_MODEL || 'openai/gpt-oss-20b'; providers.push({ name: 'Groq', model, stream: () => streamGroq(process.env.GROQ_API_KEY, model, section, mode, history, message, delta => writeEvent('delta', { text: delta })), run: () => askGroq(process.env.GROQ_API_KEY, model, section, mode, history, message, webSearch) }); }
-    if (requestedProvider !== 'groq' && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_key_here') { const model = choice?.[0] === 'gemini' ? choice[1] : process.env.GEMINI_MODEL || 'gemini-3.8-flash'; providers.push({ name: 'Gemini', model, stream: () => streamGemini(process.env.GEMINI_API_KEY, model, section, mode, history, message, attachments, delta => writeEvent('delta', { text: delta })), run: () => askGemini(process.env.GEMINI_API_KEY, model, section, mode, history, message, webSearch, attachments) }); }
+    const providerOrder = requestedProvider === 'gemini' ? ['gemini','groq'] : ['groq','gemini'];
+    for (const providerName of providerOrder) {
+      if (providerName === 'groq' && !hasAttachments && process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'your_groq_key_here') {
+        const model = choice?.[0] === 'groq' ? choice[1] : process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
+        providers.push({ name: 'Groq', model, stream: () => streamGroq(process.env.GROQ_API_KEY, model, section, mode, history, message, delta => writeEvent('delta', { text: delta })), run: () => askGroq(process.env.GROQ_API_KEY, model, section, mode, history, message, webSearch) });
+      }
+      if (providerName === 'gemini' && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_key_here') {
+        const model = choice?.[0] === 'gemini' ? choice[1] : process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+        providers.push({ name: 'Gemini', model, stream: () => streamGemini(process.env.GEMINI_API_KEY, model, section, mode, history, message, attachments, delta => writeEvent('delta', { text: delta })), run: () => askGemini(process.env.GEMINI_API_KEY, model, section, mode, history, message, webSearch, attachments) });
+      }
+    }
     if (!providers.length) return json(res, 503, { error: 'Groq ya Gemini ki free API key .env file mein add karo.' });
     if (streaming && !webSearch) {
       res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
