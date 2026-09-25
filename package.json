@@ -1,0 +1,15 @@
+{
+  "name": "nexa-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nexa AI web workspace",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "google-auth-library": "^11.1.0"
+  }
+}

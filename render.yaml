@@ -1,0 +1,26 @@
+﻿services:
+  - type: web
+    name: nexa-ai
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: OWNER_EMAIL
+        value: sourabh73003@gmail.com
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b
+      - key: GEMINI_MODEL
+        value: gemini-3.8-flash
