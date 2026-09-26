@@ -8,7 +8,7 @@ Built by **Sourabh Singh** · [sourabh7300.github.io](https://sourabh7300.github
 
 ## What it does
 
-- **Google sign-in** — verified Google ID tokens only; sessions are signed HttpOnly cookies. `sourabh73003@gmail.com` gets the owner role.
+- **Optional Google sign-in** — set `GOOGLE_CLIENT_ID` to require verified Google logins (signed HttpOnly cookies; `sourabh73003@gmail.com` gets the owner role). Without it, the app runs as a **public chat** — anyone can use it, rate-limited per IP.
 - **Two AI engines, zero downtime** — Groq (`openai/gpt-oss-20b`) is primary, Gemini (`gemini-3.6-flash`) is backup. If a provider is busy or a key dies, Nexa silently retries the other one. The failover was battle-tested: with a dead Groq key the app kept answering via Gemini.
 - **Streaming answers** — replies stream token-by-token over Server-Sent Events, with Markdown, headings, lists and code blocks rendered.
 - **Attachments** — text/Markdown/CSV/JSON up to 10k chars, plus PDF and PNG/JPG/WEBP images up to 3 MB (vision via Gemini).
@@ -24,7 +24,7 @@ Built by **Sourabh Singh** · [sourabh7300.github.io](https://sourabh7300.github
 3. To save a Groq key without pasting it into a visible terminal, run **`Save-Groq-Key.cmd`** (hidden input).
 4. To turn on Google login, put your Web OAuth client ID in `.env` as `GOOGLE_CLIENT_ID` and add `http://localhost:3000` to its Authorized JavaScript origins. Full steps: `SETUP.txt`.
 
-Without `GOOGLE_CLIENT_ID` the API is local-preview only; with it, chat requires a verified Google account.
+Without `GOOGLE_CLIENT_ID` the app is a public, rate-limited chat. With it, chat requires a verified Google account.
 
 ## Deploy (Render) — go live in one click
 

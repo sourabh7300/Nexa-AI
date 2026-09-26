@@ -124,9 +124,8 @@ test('attachments: unsupported mime type is rejected', async () => {
   assert.equal(res.status, 400);
 });
 
-test('auth-gated API returns 401 when signed out in production mode', async () => {
-  // NODE_ENV=production turns auth on even without GOOGLE_CLIENT_ID
-  const authServer = track(startServer({ NODE_ENV: 'production' }, '4313'));
+test('auth-gated API returns 401 when signed out and GOOGLE_CLIENT_ID is set', async () => {
+  const authServer = track(startServer({ GOOGLE_CLIENT_ID: 'test-client-id' }, '4313'));
   try {
     await waitReady(authServer.base);
     const res = await fetch(`${authServer.base}/api/status`);

@@ -12,7 +12,9 @@ if (fs.existsSync(envPath)) {
   }
 }
 const port = Number.parseInt(process.env.PORT, 10) || 3000;
-const authEnabled = process.env.NODE_ENV === 'production' || Boolean(process.env.GOOGLE_CLIENT_ID);
+// Auth is opt-in: set GOOGLE_CLIENT_ID to require Google sign-in.
+// Without it the app runs as a public chat (still rate-limited per IP).
+const authEnabled = Boolean(process.env.GOOGLE_CLIENT_ID);
 const ownerEmail = (process.env.OWNER_EMAIL || 'sourabh73003@gmail.com').toLowerCase();
 const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
 const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
