@@ -23,4 +23,4 @@
       - key: GROQ_MODEL
         value: openai/gpt-oss-20b
       - key: GEMINI_MODEL
-        value: gemini-3.8-flash
+        value: gemini-3.6-flash

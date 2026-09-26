@@ -29,7 +29,7 @@ WORKSPACE FEATURES
 ==================
 - Start separate conversations with New chat; Ctrl+K (or Cmd+K) starts one quickly.
 - Chat history is saved in this browser and kept separate for each signed-in email. It does not sync across devices yet.
-- Choose Auto to use Groq first and Gemini as a backup, or pick Groq GPT-OSS 20B or Gemini 3.8 Flash to try it first. If the selected provider is temporarily busy, Nexa tries the other provider when the request has no PDF/image attachment. One key per provider can access its permitted models; duplicate keys do not bypass provider quotas.
+- Choose Auto to use Groq first and Gemini as a backup, or pick Groq GPT-OSS 20B or Gemini 3.6 Flash to try it first. If the selected provider is temporarily busy, Nexa tries the other provider when the request has no PDF/image attachment. One key per provider can access its permitted models; duplicate keys do not bypass provider quotas.
 - Quick answer and Deep thinking change the instructions sent to the AI.
 - Attach accepts text, Markdown, CSV, and JSON files up to 10,000 characters, or PDF and PNG/JPG/WEBP files up to 3 MB (PDF and image analysis use Gemini).
 - Web search uses Groq browser search or Gemini Google Search grounding and shows source links. Search usage can consume provider quota and may be billable, depending on the provider and account tier.

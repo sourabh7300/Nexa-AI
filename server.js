@@ -8,10 +8,10 @@ const envPath = path.join(root, '.env');
 if (fs.existsSync(envPath)) {
   for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
     const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
-    if (match) process.env[match[1]] = match[2].trim();
+    if (match && process.env[match[1]] === undefined) process.env[match[1]] = match[2].trim();
   }
 }
-const port = Number(process.env.PORT || 3000);
+const port = Number.parseInt(process.env.PORT, 10) || 3000;
 const authEnabled = process.env.NODE_ENV === 'production' || Boolean(process.env.GOOGLE_CLIENT_ID);
 const ownerEmail = (process.env.OWNER_EMAIL || 'sourabh73003@gmail.com').toLowerCase();
 const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
@@ -70,8 +70,11 @@ function signSession(user) {
   return `${payload}.${signature}`;
 }
 function getSession(req) {
-  const cookies = Object.fromEntries((req.headers.cookie || '').split(';').map(part => part.trim()).filter(Boolean).map(part => { const at = part.indexOf('='); return at < 0 ? [part, ''] : [part.slice(0, at), decodeURIComponent(part.slice(at + 1))]; }));
-  const token = cookies[sessionCookie];
+  let token;
+  try {
+    const cookies = Object.fromEntries((req.headers.cookie || '').split(';').map(part => part.trim()).filter(Boolean).map(part => { const at = part.indexOf('='); return at < 0 ? [part, ''] : [part.slice(0, at), decodeURIComponent(part.slice(at + 1))]; }));
+    token = cookies[sessionCookie];
+  } catch { return null; }
   if (!token) return null;
   const [payload, signature] = token.split('.');
   if (!payload || !signature) return null;
@@ -100,8 +103,11 @@ async function askGroq(key, model, section, mode, history, message, webSearch) {
   if (webSearch) { payload.tools = [{ type: 'browser_search' }]; payload.tool_choice = 'required'; }
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.timeout(60000) });
   const data = await response.json();
-  const answer = data.choices?.[0]?.message?.content?.trim();
-  const citations = (data.choices?.[0]?.message?.executed_tools || []).flatMap(tool => tool.search_results || []).map(item => ({ title: item.title || item.url, url: item.url })).filter(item => /^https?:\/\//.test(item.url || ''));
+  const messageData = data.choices?.[0]?.message || {};
+  const answer = messageData.content?.trim();
+  const toolCitations = (messageData.executed_tools || []).flatMap(tool => tool.search_results || []).map(item => ({ title: item.title || item.url, url: item.url }));
+  const answerLinks = [...(answer || '').matchAll(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g)].map(match => ({ title: match[1], url: match[2] }));
+  const citations = [...new Map([...toolCitations, ...answerLinks].filter(item => /^https?:\/\//.test(item.url || '')).map(item => [item.url, item])).values()];
   return { ok: response.ok && Boolean(answer), answer, citations, error: data.error?.message || 'Groq se jawab nahi mila.' };
 }
 async function askGemini(key, model, section, mode, history, message, webSearch, attachments) {
@@ -143,7 +149,15 @@ const server = http.createServer(async (req, res) => {
       if (!profile?.email || profile.email_verified !== true) return json(res, 401, { error: 'Use a verified Google email to sign in.' });
       const user = { sub: profile.sub, email: profile.email.toLowerCase(), name: profile.name || profile.email, picture: profile.picture || '', role: profile.email.toLowerCase() === ownerEmail ? 'owner' : 'user' };
       return json(res, 200, { user: { email: user.email, name: user.name, picture: user.picture, role: user.role } }, { 'Set-Cookie': cookie(signSession(user), sessionSeconds) });
-    } catch { return json(res, 401, { error: 'Google sign-in verify nahi hua. Dobara try karo.' }); }
+    } catch (error) {
+      const detail = String(error?.message || '');
+      console.error(`Google sign-in verification failed: ${detail || 'unknown error'}`);
+      let message = 'Google account could not be verified. Check that this account is allowed to use the app, then try again.';
+      if (/audience|recipient/i.test(detail)) message = 'Google sign-in client ID mismatch. Check the OAuth client ID configuration.';
+      else if (/expired|too late|too early/i.test(detail)) message = 'Google sign-in expired. Try again and check the computer date and time.';
+      else if (/fetch failed|certificate|ECONN|ENOTFOUND|network/i.test(detail)) message = 'Could not reach Google to verify sign-in. Check the internet connection and try again.';
+      return json(res, 401, { error: message });
+    }
   }
   if (req.method === 'GET' && url.pathname === '/api/auth/me') {
     const user = getSession(req);
@@ -171,7 +185,7 @@ const server = http.createServer(async (req, res) => {
     if (Array.isArray(body.attachments) && body.attachments.length !== attachments.length) return json(res, 400, { error: 'PDF or PNG, JPG, and WEBP image files are supported (max 3 MB each).' });
     const hasAttachments = attachments.length > 0 || history.some(item => item.attachments.length > 0);
     const providers = [];
-    const modelChoices = { 'groq:openai/gpt-oss-20b': ['groq','openai/gpt-oss-20b'], 'gemini:gemini-3.8-flash': ['gemini','gemini-3.8-flash'] };
+    const modelChoices = { 'groq:openai/gpt-oss-20b': ['groq','openai/gpt-oss-20b'], 'gemini:gemini-3.6-flash': ['gemini','gemini-3.6-flash'] };
     const choice = modelChoices[body.model] || null;
     const requestedProvider = choice?.[0] || (['groq','gemini'].includes(body.provider) ? body.provider : 'auto');
     if (requestedProvider === 'groq' && hasAttachments) return json(res, 400, { error: 'PDF and image attachments currently need Gemini. Choose Auto or Gemini.' });
@@ -182,7 +196,7 @@ const server = http.createServer(async (req, res) => {
         providers.push({ name: 'Groq', model, stream: () => streamGroq(process.env.GROQ_API_KEY, model, section, mode, history, message, delta => writeEvent('delta', { text: delta })), run: () => askGroq(process.env.GROQ_API_KEY, model, section, mode, history, message, webSearch) });
       }
       if (providerName === 'gemini' && process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_key_here') {
-        const model = choice?.[0] === 'gemini' ? choice[1] : process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+        const model = choice?.[0] === 'gemini' ? choice[1] : process.env.GEMINI_MODEL || 'gemini-3.6-flash';
         providers.push({ name: 'Gemini', model, stream: () => streamGemini(process.env.GEMINI_API_KEY, model, section, mode, history, message, attachments, delta => writeEvent('delta', { text: delta })), run: () => askGemini(process.env.GEMINI_API_KEY, model, section, mode, history, message, webSearch, attachments) });
       }
     }
@@ -199,7 +213,7 @@ const server = http.createServer(async (req, res) => {
           ? () => streamGroq(process.env.GROQ_API_KEY, provider.model, section, mode, history, message, sendDelta, controller.signal)
           : () => streamGemini(process.env.GEMINI_API_KEY, provider.model, section, mode, history, message, attachments, sendDelta, controller.signal);
         try { await provider.stream(); writeEvent('done', { provider: provider.name, model: provider.model }); return res.end(); }
-        catch (error) { if (sentText || provider === providers.at(-1)) { writeEvent('error', { message: `${provider.name}: ${error.message || 'connection nahi ho paaya.'}` }); return res.end(); } }
+        catch (error) { console.error(`${provider.name} streaming failed: ${error.message || 'unknown error'}`); if (sentText || provider === providers.at(-1)) { writeEvent('error', { message: `${provider.name}: ${error.message || 'connection nahi ho paaya.'}` }); return res.end(); } }
       }
       return res.end();
     }
@@ -211,10 +225,11 @@ const server = http.createServer(async (req, res) => {
     return json(res, 502, { error: `${lastError} Free quota khatam ho toh kuch der baad try karo.` });
   }
   if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'Method allowed nahi hai.' });
-  const requested = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname.slice(1));
-  const file = path.resolve(root, requested);
-  if (!file.startsWith(root + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); return res.end('Not found'); }
-  res.writeHead(200, { 'Content-Type': file.endsWith('.html') ? 'text/html; charset=utf-8' : 'application/octet-stream', 'X-Content-Type-Options': 'nosniff' });
+  // Only the public app entry point is static content. Never expose .env,
+  // OAuth credentials, source files, or other files in the project directory.
+  if (url.pathname !== '/' && url.pathname !== '/index.html') { res.writeHead(404); return res.end('Not found'); }
+  const file = path.join(root, 'index.html');
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'X-Content-Type-Options': 'nosniff' });
   if (req.method === 'HEAD') return res.end();
   fs.createReadStream(file).pipe(res);
 });
