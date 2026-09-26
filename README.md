@@ -1,5 +1,7 @@
 # ✦ Nexa AI
 
+[![CI](https://github.com/sourabh7300/Nexa-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/sourabh7300/Nexa-AI/actions/workflows/ci.yml)
+
 Your all-in-one AI workspace — a Google-signed-in chat app with streaming replies, file & image understanding, web search with citations, and automatic AI-provider failover.
 
 Built by **Sourabh Singh** · [sourabh7300.github.io](https://sourabh7300.github.io)
@@ -24,9 +26,25 @@ Built by **Sourabh Singh** · [sourabh7300.github.io](https://sourabh7300.github
 
 Without `GOOGLE_CLIENT_ID` the API is local-preview only; with it, chat requires a verified Google account.
 
-## Deploy (Render)
+## Deploy (Render) — go live in one click
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/sourabh7300/Nexa-AI)
 
 `render.yaml` is a ready Blueprint: free Node web service, `GROQ_API_KEY` / `GEMINI_API_KEY` / `GOOGLE_CLIENT_ID` as dashboard secrets, auto-generated `SESSION_SECRET`, health check at `/healthz`. After deploying, add your `*.onrender.com` origin to the OAuth client's Authorized JavaScript origins.
+
+## Tests & CI
+
+Every push runs a 14-test integration suite on GitHub Actions (Node 20). The suite spawns real server processes and verifies over HTTP:
+
+- health check, index page, HEAD requests
+- security: `.env`, source files, and arbitrary paths are never served
+- auth: API is gated (401) in production mode, sign-in endpoint validates input
+- chat validation: empty/oversized/invalid bodies, unsupported attachments
+- graceful degradation: 503 with no provider keys, never a crash
+- rate limiting: 429 + `Retry-After` at 20 chats/minute
+- regression: invalid `PORT` falls back to 3000
+
+Run locally with `npm test` (zero dependencies — Node's built-in test runner).
 
 Note: Render Free services sleep after ~15 min idle and cold-start in about a minute.
 

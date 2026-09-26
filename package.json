@@ -4,7 +4,8 @@
   "private": true,
   "description": "Nexa AI web workspace",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test test/server.test.js"
   },
   "engines": {
     "node": ">=18"
